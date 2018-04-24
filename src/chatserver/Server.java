@@ -14,6 +14,7 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Date;
 import org.json.simple.JSONArray;
@@ -30,6 +31,7 @@ public class Server {
     private static ArrayList<Message> messages = new ArrayList();
     private boolean isRunning = false;
     private int port;
+    private static final String REQUEST_PATH = "/message";
 
     public Server(int port) {
         this.port = port;
@@ -88,20 +90,28 @@ public class Server {
 
         public void handle(HttpExchange httpExchange) throws IOException {
             String method = httpExchange.getRequestMethod();
+            URI requestURI = httpExchange.getRequestURI();
+            System.out.println(requestURI.getPath());
             try {
+                if (requestURI.getPath() == null ? REQUEST_PATH == null : requestURI.getPath().equals(REQUEST_PATH)) {
+                    if (method.equalsIgnoreCase("POST")) {
+                        String messageString = Server.getBufferFromBody(new InputStreamReader(httpExchange.getRequestBody(), "utf-8"));
+                        Server.addMessage(messageString);
 
-                if (method.equalsIgnoreCase("POST")) {
-                    String messageString = Server.getBufferFromBody(new InputStreamReader(httpExchange.getRequestBody(), "utf-8"));
-                    Server.addMessage(messageString);
+                        byte[] response = Server.createResponseBody();
+                        Server.sendResponse(httpExchange, 200, response);
 
-                    byte[] response = Server.createResponseBody();
-                    Server.sendResponse(httpExchange, 200, response);
+                    } else if (method.equalsIgnoreCase("GET")) {
+                        byte[] response = Server.createResponseBody();
+                        Server.sendResponse(httpExchange, 200, response);
 
-                } else if (method.equalsIgnoreCase(
-                        "GET")) {
-                    byte[] response = Server.createResponseBody();
-                    Server.sendResponse(httpExchange, 200, response);
-
+                    } else {
+                        byte[] response = "Not implemented".getBytes();
+                        Server.sendResponse(httpExchange, 501, response);
+                    }
+                } else {
+                    byte[] response = "No context found for request".getBytes();
+                    Server.sendResponse(httpExchange, 404, response);
                 }
             } catch (IOException | ParseException err) {
                 if (err instanceof ParseException) {
@@ -122,7 +132,7 @@ public class Server {
                 return;
             }
             HttpServer server = HttpServer.create(new InetSocketAddress(this.port), 0);
-            server.createContext("/message", new MessageHandler());
+            server.createContext(REQUEST_PATH, new MessageHandler());
             server.setExecutor(null); // creates a default executor
             server.start();
             this.isRunning = true;
