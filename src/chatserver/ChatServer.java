@@ -16,6 +16,8 @@ public class ChatServer {
      */
     public static void main(String[] args) {
         // TODO code application logic here
+        ServerGUI GUI = new ServerGUI();
+        GUI.setVisible(true);
     }
     
 }
